@@ -100,4 +100,4 @@ streamlit run app.py
 
 **Aryan Sinha**  
 Computer Science Student  
-Built during SBI Internship, Patna — to automate daily NCRP transaction reporting.
+Built during SBI Internship — to automate daily NCRP transaction reporting.
