@@ -172,14 +172,12 @@ def build_excel(df, date_label):
         ("Layer 4-5 Transactions", layer4_5, ORANGE),
         ("Layer 6-10 Transactions", layer6_10, RED),
         ("Layer 10+ Transactions", layer10p, RED),
-        ("Disputed Amount < ₹500", dis_lt500, GREEN),
+        ("Disputed Amount \u2264 \u20b9500 (excl. Layer 0)", int(((df['Disputed Amount']<=500) & (df['Layers']!=0)).sum()), GREEN),
         ("Disputed Amount ≥ ₹20,000", int((df['Disputed Amount']>=20000).sum()), ORANGE),
-        ("Disputed Amount — Layer 1", int(df[df['Layers']==1]['Disputed Amount'].sum()), BLUE),
-        ("Disputed Amount — Layer 2", int(df[df['Layers']==2]['Disputed Amount'].sum()), BLUE),
-        ("Disputed Amount — Layer 3", int(df[df['Layers']==3]['Disputed Amount'].sum()), BLUE),
-        ("Disputed Amount — Layer 1+2+3 Total", int(df[df['Layers'].isin([1,2,3])]['Disputed Amount'].sum()), PURPLE),
-        ("Transaction Amount < ₹500", txn_lt500, GREEN),
-        ("Transaction Amount ≥ ₹20,000", txn_20kp, ORANGE),
+        ("Disputed \u2265 \u20b920,000 \u2014 Layer 1 (Count)", int(((df['Layers']==1) & (df['Disputed Amount']>=20000)).sum()), BLUE),
+        ("Disputed \u2265 \u20b920,000 \u2014 Layer 2 (Count)", int(((df['Layers']==2) & (df['Disputed Amount']>=20000)).sum()), BLUE),
+        ("Disputed \u2265 \u20b920,000 \u2014 Layer 3 (Count)", int(((df['Layers']==3) & (df['Disputed Amount']>=20000)).sum()), BLUE),
+        ("Disputed \u2265 \u20b920,000 \u2014 Layer 1+2+3 Total", int(((df['Layers'].isin([1,2,3])) & (df['Disputed Amount']>=20000)).sum()), PURPLE),
         ("API Attended", int(df[df['Action Taken by'].notna() & (df['Action Taken by'].astype(str).str.strip() != '')].shape[0]), GREEN),
         ("API Unattended (Blank Action Taken by)", int(df[df['Action Taken by'].isna() | (df['Action Taken by'].astype(str).str.strip() == '')].shape[0]), RED),
     ]
@@ -405,18 +403,14 @@ else:
 
             st.markdown('<div class="section-header">Other Metrics</div>', unsafe_allow_html=True)
             e1, e2, e3 = st.columns(3)
-            e1.metric("Disputed Amount < ₹500", f"{(df['Disputed Amount']<500).sum():,}")
-            e2.metric("Transaction Amount < ₹500", f"{(df['Transaction Amount']<500).sum():,}")
-            e3.metric("Transaction Amount ≥ ₹20,000", f"{(df['Transaction Amount']>=20000).sum():,}")
-            a2.metric("Disputed Amount ≥ ₹20,000", f"{(df['Disputed Amount']>=20000).sum():,}")
-            a3.metric("Transaction Amount ≥ ₹20,000", f"{(df['Transaction Amount']>=20000).sum():,}")
+            e1.metric("Disputed Amount \u2264 \u20b9500 (excl. Layer 0)", f"{int(((df['Disputed Amount']<=500) & (df['Layers']!=0)).sum()):,}")
 
             st.markdown('<div class="section-header">Disputed Amount by Layer</div>', unsafe_allow_html=True)
             b1, b2, b3, b4 = st.columns(4)
-            b1.metric("Layer 1 Disputed", f"₹{int(df[df['Layers']==1]['Disputed Amount'].sum()):,}")
-            b2.metric("Layer 2 Disputed", f"₹{int(df[df['Layers']==2]['Disputed Amount'].sum()):,}")
-            b3.metric("Layer 3 Disputed", f"₹{int(df[df['Layers']==3]['Disputed Amount'].sum()):,}")
-            b4.metric("Layer 1-3 Total", f"₹{int(df[df['Layers'].isin([1,2,3])]['Disputed Amount'].sum()):,}")
+            b1.metric("Layer 1 \u2014 Disputed \u2265 \u20b920k (Count)", f"{int(((df['Layers']==1) & (df['Disputed Amount']>=20000)).sum()):,}")
+            b2.metric("Layer 2 \u2014 Disputed \u2265 \u20b920k (Count)", f"{int(((df['Layers']==2) & (df['Disputed Amount']>=20000)).sum()):,}")
+            b3.metric("Layer 3 \u2014 Disputed \u2265 \u20b920k (Count)", f"{int(((df['Layers']==3) & (df['Disputed Amount']>=20000)).sum()):,}")
+            b4.metric("Layer 1+2+3 Total Count", f"{int(((df['Layers'].isin([1,2,3])) & (df['Disputed Amount']>=20000)).sum()):,}")
 
             st.markdown('<div class="section-header">API Attended vs Unattended</div>', unsafe_allow_html=True)
             attended = df[df['Action Taken by'].notna() & (df['Action Taken by'].astype(str).str.strip() != '')].shape[0]
@@ -426,7 +420,6 @@ else:
             d1, d2, d3 = st.columns(3)
             d1.metric("✅ Attended", f"{attended:,}", f"{att_pct}%")
             d2.metric("❌ Unattended", f"{unattended:,}", f"{unatt_pct}%")
-            d3.metric("Transaction Amount < ₹500", f"{(df['Transaction Amount']<500).sum():,}")
 
         with tab2:
             col_a, col_b = st.columns(2)
@@ -632,66 +625,13 @@ else:
                     color_discrete_sequence=['#2563a8','#059669','#D97706','#DC2626','#7C3AED'])
                 fig_al.update_layout(showlegend=False, height=300, paper_bgcolor='rgba(0,0,0,0)', font_color='white')
                 st.plotly_chart(fig_al, use_container_width=True)
-
-            st.markdown('<div class="section-header">API by State</div>', unsafe_allow_html=True)
-            if 'State' in api_df.columns:
-                api_state = api_df['State'].value_counts().reset_index()
-                api_state.columns = ['State','API Count']
-                api_state['% of API'] = (api_state['API Count']/api_n*100).round(2).astype(str)+'%'
-                col_a, col_b = st.columns(2)
-                with col_a:
-                    st.dataframe(api_state, use_container_width=True, height=350)
-                with col_b:
-                    fig_as = px.bar(api_state.head(12), x='API Count', y='State', orientation='h',
-                        title='Top States — API Transactions', color='API Count',
-                        color_continuous_scale=['#EFF6FF','#2563a8'])
-                    fig_as.update_layout(height=380, paper_bgcolor='rgba(0,0,0,0)', font_color='white')
-                    st.plotly_chart(fig_as, use_container_width=True)
-
-            st.markdown('<div class="section-header">API by Bank</div>', unsafe_allow_html=True)
-            if 'Money transfer TO Bank' in api_df.columns:
-                api_bank = api_df['Money transfer TO Bank'].value_counts().reset_index()
-                api_bank.columns = ['Bank','API Count']
-                api_bank['% of API'] = (api_bank['API Count']/api_n*100).round(2).astype(str)+'%'
-                col_a, col_b = st.columns(2)
-                with col_a:
-                    st.dataframe(api_bank, use_container_width=True, height=350)
-                with col_b:
-                    fig_ab = px.bar(api_bank.head(10), x='API Count', y='Bank', orientation='h',
-                        title='Top Banks — API Transactions', color='API Count',
-                        color_continuous_scale=['#FFF7ED','#D97706'])
-                    fig_ab.update_layout(height=380, paper_bgcolor='rgba(0,0,0,0)', font_color='white')
-                    st.plotly_chart(fig_ab, use_container_width=True)
-
-            st.markdown('<div class="section-header">API by Officer</div>', unsafe_allow_html=True)
-            if 'Action Taken by' in api_df.columns:
-                api_officer = api_df['Action Taken by'].value_counts().reset_index()
-                api_officer.columns = ['Officer','API Count']
-                api_officer['% of API'] = (api_officer['API Count']/api_n*100).round(2).astype(str)+'%'
-                col_a, col_b = st.columns(2)
-                with col_a:
-                    st.dataframe(api_officer, use_container_width=True, height=350)
-                with col_b:
-                    fig_ao = px.bar(api_officer.head(12), x='API Count', y='Officer', orientation='h',
-                        title='Top Officers — API Transactions', color='API Count',
-                        color_continuous_scale=['#F5F3FF','#7C3AED'])
-                    fig_ao.update_layout(height=380, paper_bgcolor='rgba(0,0,0,0)', font_color='white')
-                    st.plotly_chart(fig_ao, use_container_width=True)
-
             st.markdown("---")
             st.markdown('<div class="section-header">Download API-only Report</div>', unsafe_allow_html=True)
             api_excel = io.BytesIO()
             with pd.ExcelWriter(api_excel, engine='openpyxl') as writer:
                 cat_df.to_excel(writer, sheet_name='API vs Hold vs Others', index=False)
                 api_layer.to_excel(writer, sheet_name='API by Layer', index=False)
-                if 'State' in api_df.columns:
-                    api_state.to_excel(writer, sheet_name='API by State', index=False)
-                if 'Money transfer TO Bank' in api_df.columns:
-                    api_bank.to_excel(writer, sheet_name='API by Bank', index=False)
-                if 'Action Taken by' in api_df.columns:
-                    api_officer.to_excel(writer, sheet_name='API by Officer', index=False)
-                api_df.drop(columns=['Action_clean','Category','Layer_Cat'], errors='ignore').to_excel(
-                    writer, sheet_name='Raw API Transactions', index=False)
+                api_df.to_excel(writer, sheet_name='Raw API Transactions', index=False)
             api_excel.seek(0)
             st.download_button(
                 "📥 Download API Analysis Report",
